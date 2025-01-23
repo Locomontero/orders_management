@@ -32,12 +32,6 @@ public class OrderController {
                 .defaultIfEmpty(ResponseEntity.badRequest().build());
     }
 
-    @PutMapping("/{id}/calculate")
-    public Mono<ResponseEntity<OrderDTO>> calculateTotalValue(@PathVariable Long id) {
-        return orderService.calculateTotalValue(id)
-                .map(orderDTO -> ResponseEntity.ok(orderDTO))
-                .defaultIfEmpty(ResponseEntity.notFound().build());
-    }
 
     @Operation(summary = "Get all orders", description = "Fetches all orders")
     @GetMapping
