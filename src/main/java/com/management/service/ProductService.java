@@ -1,27 +1,26 @@
 package com.management.service;
 
 import com.management.model.Product;
+import com.management.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
-
-import java.util.Optional;
 
 @Service
 public class ProductService {
 
-    private final WebClient.Builder webClientBuilder;
     private final OrderService orderService;
+    private final ProductRepository productRepository;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired
-    public ProductService(WebClient.Builder webClientBuilder, OrderService orderService) {
-        this.webClientBuilder = webClientBuilder;
+    public ProductService(OrderService orderService, ProductRepository productRepository, KafkaTemplate<String, String> kafkaTemplate) {
         this.orderService = orderService;
+        this.productRepository = productRepository;
+        this.kafkaTemplate = kafkaTemplate;
     }
-
-    private static final String PRODUCT_A_URL = "https://api.produtoA.com/v1/products";
 
     public Flux<Product> getExternalProduct() {
         return createProducts(1L);
@@ -34,12 +33,19 @@ public class ProductService {
     }
 
     private Flux<Product> createProducts(Long orderId) {
-        return Optional.ofNullable(orderService.getOrderById(orderId))
-                .map(order -> Flux.just(
-                        new Product(1L, "Product A", 100.0, order),
-                        new Product(2L, "Product B", 50.5, order),
-                        new Product(3L, "Product C", 75.0, order)
-                ))
-                .orElse(Flux.empty());
+        return orderService.getOrderWithProducts(orderId)
+                .flatMapMany(order -> {
+                    Product productA = new Product(1L, "Product A", order.getTotalValue() > 100 ? 120.0 : 100.0, order.getId());
+                    Product productB = new Product(2L, "Product B", order.getTotalValue() > 50 ? 60.0 : 50.5, order.getId());
+                    Product productC = new Product(3L, "Product C", 75.0, order.getId());
+
+                    String message = "Pedido " + order.getId() + " criado com os produtos: " +
+                            productA.getName() + ", " + productB.getName() + ", " + productC.getName();
+                    kafkaTemplate.send("order-topic", message);
+
+                    return Flux.just(productA, productB, productC)
+                            .flatMap(product -> productRepository.save(product));
+                })
+                .switchIfEmpty(Flux.empty());
     }
 }

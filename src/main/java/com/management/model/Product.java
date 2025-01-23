@@ -1,16 +1,18 @@
 package com.management.model;
 
 import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-@Entity
+
 @Data
+@Table("product")
 public class Product {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NotNull
@@ -20,15 +22,17 @@ public class Product {
     @NotNull
     private double price;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
-    private Order order;
+    @Column("order_id")
+    private Long orderId;
 
-    public Product(Long id, String name, double price, Order order) {
+    public Product() {
+    }
+
+    public Product(Long id, String name, double price, Long orderId) {
         this.id = id;
         this.name = name;
         this.price = price;
-        this.order = order;
+        this.orderId = orderId;
     }
 
     public Product(Long id, String name, double price) {
