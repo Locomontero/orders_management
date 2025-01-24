@@ -1,5 +1,6 @@
 package com.management.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.management.dto.OrderDTO;
 import com.management.dto.ProductDTO;
 import com.management.model.Order;
@@ -9,6 +10,7 @@ import com.management.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
@@ -42,24 +44,24 @@ public class OrderService {
         this.objectMapper = objectMapper;
     }
 
-//    @KafkaListener(topics = "order-topic", groupId = "order-consumer-group")
-//    public void consumeOrder(String orderMessage) {
-//        try {
-//            List<OrderDTO> orderDTOList = objectMapper.readValue(orderMessage, new TypeReference<List<OrderDTO>>(){});
-//
-//            for (OrderDTO orderDTO : orderDTOList) {
-//                createOrder(orderDTO).subscribe();
-//            }
-//        } catch (Exception e) {
-//            logger.error("Erro ao processar os pedidos", e);
-//        }
-//    }
+    @KafkaListener(topics = "order-topic", groupId = "order-consumer-group")
+    public void consumeOrder(String orderMessage) {
+        try {
+            List<OrderDTO> orderDTOList = objectMapper.readValue(orderMessage, new TypeReference<List<OrderDTO>>(){});
+
+            for (OrderDTO orderDTO : orderDTOList) {
+                createOrderWithProducts(orderDTO).subscribe();
+            }
+        } catch (Exception e) {
+            logger.error("Erro ao processar os pedidos", e);
+        }
+    }
 @Transactional
 public Mono<Long> createOrderWithProducts(OrderDTO orderDTO) {
-    // Converte o OrderDTO para a entidade Order
+
     Order order = convertToOrder(orderDTO);
 
-    // Inserção do pedido no banco
+
     return databaseClient.sql("INSERT INTO orders (customer, status, total_value) VALUES (:customer, :status, 0) RETURNING id")
             .bind("customer", order.getCustomer())
             .bind("status", order.getStatus())
@@ -67,10 +69,10 @@ public Mono<Long> createOrderWithProducts(OrderDTO orderDTO) {
             .one()
             .map(row -> (Long) row.get("id"))
             .flatMap(orderId -> {
-                // Inserção dos produtos relacionados ao pedido
+
                 return insertProductsInBatch(order.getProducts(), orderId)
-                        .then(updateTotalValue(orderId))  // Atualiza o total
-                        .thenReturn(orderId);  // Retorna o ID do pedido
+                        .then(updateTotalValue(orderId))
+                        .thenReturn(orderId);
             });
 }
 
