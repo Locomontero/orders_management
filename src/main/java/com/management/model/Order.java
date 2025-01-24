@@ -32,6 +32,16 @@ public class Order {
         this.products = new ArrayList<>();
     }
 
+    public Order(Long id, String customer, String status, double totalValue, List<Product> products) {
+        this.id = id;
+        this.customer = customer;
+        this.status = status;
+        this.totalValue = totalValue;
+        this.products = products;
+    }
+
+
+
     public void addProduct(Product product) {
         this.products.add(product);
     }

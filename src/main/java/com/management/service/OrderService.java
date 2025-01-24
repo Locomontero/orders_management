@@ -10,15 +10,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class OrderService {
 
+    @Autowired
+    private DatabaseClient databaseClient;
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
@@ -36,74 +42,66 @@ public class OrderService {
         this.objectMapper = objectMapper;
     }
 
-    //@KafkaListener(topics = "order-topic", groupId = "order-consumer-group")
-    public void consumeOrder(String orderMessage) {
-        try {
-            OrderDTO orderDTO = objectMapper.readValue(orderMessage, OrderDTO.class);
-            createOrder(orderDTO)
-                    .doOnTerminate(() -> sendOrderToExternalB(orderDTO))
-                    .subscribe();
-        } catch (Exception e) {
-            logger.error("Erro ao processar o pedido", e);
+//    @KafkaListener(topics = "order-topic", groupId = "order-consumer-group")
+//    public void consumeOrder(String orderMessage) {
+//        try {
+//            List<OrderDTO> orderDTOList = objectMapper.readValue(orderMessage, new TypeReference<List<OrderDTO>>(){});
+//
+//            for (OrderDTO orderDTO : orderDTOList) {
+//                createOrder(orderDTO).subscribe();
+//            }
+//        } catch (Exception e) {
+//            logger.error("Erro ao processar os pedidos", e);
+//        }
+//    }
+@Transactional
+public Mono<Long> createOrderWithProducts(OrderDTO orderDTO) {
+    // Converte o OrderDTO para a entidade Order
+    Order order = convertToOrder(orderDTO);
+
+    // Inserção do pedido no banco
+    return databaseClient.sql("INSERT INTO orders (customer, status, total_value) VALUES (:customer, :status, 0) RETURNING id")
+            .bind("customer", order.getCustomer())
+            .bind("status", order.getStatus())
+            .fetch()
+            .one()
+            .map(row -> (Long) row.get("id"))
+            .flatMap(orderId -> {
+                // Inserção dos produtos relacionados ao pedido
+                return insertProductsInBatch(order.getProducts(), orderId)
+                        .then(updateTotalValue(orderId))  // Atualiza o total
+                        .thenReturn(orderId);  // Retorna o ID do pedido
+            });
+}
+
+    private Mono<Void> insertProductsInBatch(List<Product> products, Long orderId) {
+        StringBuilder sql = new StringBuilder("INSERT INTO product (name, price, order_id) VALUES ");
+        for (int i = 0; i < products.size(); i++) {
+            sql.append("(:name" + i + ", :price" + i + ", :orderId)");
+            if (i < products.size() - 1) {
+                sql.append(", ");
+            }
         }
+
+        var query = databaseClient.sql(sql.toString());
+
+        for (int i = 0; i < products.size(); i++) {
+            query = query.bind("name" + i, products.get(i).getName())
+                    .bind("price" + i, products.get(i).getPrice())
+                    .bind("orderId", orderId);
+        }
+
+        return query.fetch().rowsUpdated().then();
     }
 
-    private void sendOrderToExternalB(OrderDTO orderDTO) {
-        try {
-            String orderMessage = objectMapper.writeValueAsString(orderDTO);
+    private Mono<Void> updateTotalValue(Long orderId) {
+        String sql = "UPDATE orders SET total_value = (SELECT SUM(price) FROM product WHERE order_id = :orderId) WHERE id = :orderId";
 
-            kafkaTemplate.send("external-b-order-topic", orderMessage)
-                    .addCallback(
-                            result -> logger.info("SUCESS!"),
-                            ex -> {
-                                logger.error("Erro ao enviar para External B, tentando novamente...", ex);
-                                retrySendOrderToExternalB(orderDTO);
-                            }
-                    );
-        } catch (Exception e) {
-            logger.error("Erro converter JSON", e);
-        }
-    }
-
-    private void retrySendOrderToExternalB(OrderDTO orderDTO) {
-        try {
-
-            String orderMessage = objectMapper.writeValueAsString(orderDTO);
-            kafkaTemplate.send("external-b-order-topic", orderMessage);
-            logger.info("Retry de envio para External B bem-sucedido!");
-        } catch (Exception e) {
-            logger.error("Falha no retry de envio para External B", e);
-        }
-    }
-
-
-    @Transactional
-    public Mono<OrderDTO> createOrder(OrderDTO orderDTO) {
-
-        Order order = new Order();
-        order.setCustomer(orderDTO.getCustomer());
-        order.setStatus(orderDTO.getStatus());
-        order.setTotalValue(0.0);
-
-        return orderRepository.save(order)
-                .flatMap(savedOrder -> {
-                    return Flux.fromIterable(orderDTO.getProducts())
-                            .filter(productDTO -> productDTO.getPrice() > 0 && productDTO.getName() != null && !productDTO.getName().isEmpty())
-                            .map(productDTO -> {
-                                Product product = new Product();
-                                product.setName(productDTO.getName());
-                                product.setPrice(productDTO.getPrice());
-                                product.setOrderId(savedOrder.getId());
-                                return product;
-                            })
-                            .collectList()
-                            .flatMap(products -> {
-
-                                savedOrder.setProducts(products);
-                                return orderRepository.save(savedOrder);
-                            })
-                            .map(savedOrderAfterSave -> new OrderDTO(savedOrderAfterSave));
-                });
+        return databaseClient.sql(sql)
+                .bind("orderId", orderId)
+                .fetch()
+                .rowsUpdated()
+                .then();
     }
 
     @Transactional
@@ -119,35 +117,18 @@ public class OrderService {
                 );
     }
 
-    @Transactional
-    public Mono<OrderDTO> getOrderWithProducts(Long orderId) {
-        return orderRepository.findById(orderId)
-                .flatMap(order -> {
-                    return productRepository.findByOrderId(orderId)
-                            .collectList()
-                            .map(products -> {
-                                products.forEach(product -> product.setOrderId(orderId));
-                                order.setProducts(products);
-                                return new OrderDTO(order);
-                            });
-                });
+    private Order convertToOrder(OrderDTO orderDTO) {
+        List<Product> products = orderDTO.getProducts().stream()
+                .map(productDTO -> new Product(productDTO.getId(), productDTO.getName(), productDTO.getPrice()))
+                .collect(Collectors.toList());
+        return new Order(null, orderDTO.getCustomer(), orderDTO.getStatus(), orderDTO.getTotalValue(), products);
     }
 
-    @Transactional
-    public Mono<OrderDTO> addProductToOrder(Long orderId, ProductDTO productDTO) {
-        return orderRepository.findById(orderId)
-                .flatMap(order -> {
-                    Product product = new Product();
-                    product.setName(productDTO.getName());
-                    product.setPrice(productDTO.getPrice());
-                    product.setOrderId(order.getId());
-
-                    return productRepository.save(product)
-                            .flatMap(savedProduct -> {
-                                order.addProduct(savedProduct);
-                                return orderRepository.save(order)
-                                        .map(savedOrder -> new OrderDTO(savedOrder));
-                            });
-                });
+    private OrderDTO convertToOrderDTO(Order order) {
+        List<ProductDTO> productDTOs = order.getProducts().stream()
+                .map(product -> new ProductDTO(product))
+                .collect(Collectors.toList());
+        return new OrderDTO(order.getId(), order.getCustomer(), order.getStatus(), order.getTotalValue(), productDTOs);
     }
+
 }

@@ -1,12 +1,10 @@
 package com.management.controller;
 
 import com.management.dto.OrderDTO;
-import com.management.dto.ProductDTO;
 import com.management.service.OrderService;
 import com.management.service.TotalValueCalculatorService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
@@ -26,12 +24,9 @@ public class OrderController {
 
     @Operation(summary = "Create a new order", description = "Creates a new order in the system")
     @PostMapping
-    public Mono<ResponseEntity<OrderDTO>> createOrder(@RequestBody OrderDTO orderDTO) {
-        return orderService.createOrder(orderDTO)
-                .map(orderDTOResult -> ResponseEntity.status(201).body(orderDTOResult))
-                .defaultIfEmpty(ResponseEntity.badRequest().build());
+    public Mono<Long> createOrder(@RequestBody OrderDTO orderDTO) {
+        return orderService.createOrderWithProducts(orderDTO);
     }
-
 
     @Operation(summary = "Get all orders", description = "Fetches all orders")
     @GetMapping
@@ -39,16 +34,4 @@ public class OrderController {
         return orderService.getAllOrders();
     }
 
-    @Operation(summary = "Get order by ID", description = "Fetches an order by its ID")
-    @GetMapping("/{id}")
-    public Mono<OrderDTO> getOrderWithProducts(@PathVariable Long id) {
-        return orderService.getOrderWithProducts(id);
-    }
-
-    @PostMapping("/{orderId}/products")
-    public Mono<ResponseEntity<OrderDTO>> addProductToOrder(@PathVariable Long orderId, @RequestBody ProductDTO productDTO) {
-        return orderService.addProductToOrder(orderId, productDTO)
-                .map(orderDTO -> ResponseEntity.ok(orderDTO))
-                .defaultIfEmpty(ResponseEntity.notFound().build());
-    }
 }

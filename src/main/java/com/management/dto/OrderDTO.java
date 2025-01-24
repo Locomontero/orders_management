@@ -3,6 +3,7 @@ package com.management.dto;
 import com.management.model.Order;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,20 @@ public class OrderDTO {
                 .collect(Collectors.toList());
     }
 
+    public OrderDTO(Long id, String customer, String status, double totalValue) {
+        this.id = id;
+        this.customer = customer;
+        this.status = status;
+        this.totalValue = totalValue;
+        this.products = new ArrayList<>();
+    }
 
+    public OrderDTO(Long orderId, String customer, String status, double totalValue, List<ProductDTO> products) {
+        this.id = id;
+        this.customer = customer;
+        this.status = status;
+        this.totalValue = totalValue;
+        this.products = products != null ? products : new ArrayList<>();
+    }
 }
 
