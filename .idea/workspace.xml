@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f782b74d-4362-4d9c-ba99-b04b691611db" name="Changes" comment="" />
+    <list default="true" id="f782b74d-4362-4d9c-ba99-b04b691611db" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -88,6 +91,7 @@
     &quot;Docker.docker-compose.yaml.order-service: Compose Deployment.executor&quot;: &quot;Run&quot;,
     &quot;Docker.docker-compose.yaml.postgres: Compose Deployment.executor&quot;: &quot;Run&quot;,
     &quot;Docker.docker-compose.yaml.zookeeper: Compose Deployment.executor&quot;: &quot;Run&quot;,
+    &quot;JUnit.TotalValueCalculatorServiceTest.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;developer&quot;,
@@ -109,6 +113,21 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="TotalValueCalculatorServiceTest" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+      <module name="order-management" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.management.service.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="PACKAGE_NAME" value="com.management.service" />
+      <option name="MAIN_CLASS_NAME" value="com.management.service.TotalValueCalculatorServiceTest" />
+      <option name="TEST_OBJECT" value="class" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
       <deployment type="docker-compose.yml">
         <settings />
@@ -121,19 +140,6 @@
           <option name="services">
             <list>
               <option value="kafka" />
-            </list>
-          </option>
-          <option name="sourceFilePath" value="docker-compose.yaml" />
-        </settings>
-      </deployment>
-      <method v="2" />
-    </configuration>
-    <configuration name="docker-compose.yaml.order-service: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
-      <deployment type="docker-compose.yml">
-        <settings>
-          <option name="services">
-            <list>
-              <option value="order-service" />
             </list>
           </option>
           <option name="sourceFilePath" value="docker-compose.yaml" />
@@ -170,10 +176,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Application.OrderManagementApp" />
+        <item itemvalue="JUnit.TotalValueCalculatorServiceTest" />
         <item itemvalue="Docker.docker-compose.yaml.postgres: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.yaml.kafka: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.yaml.zookeeper: Compose Deployment" />
-        <item itemvalue="Docker.docker-compose.yaml.order-service: Compose Deployment" />
       </list>
     </recent_temporary>
   </component>

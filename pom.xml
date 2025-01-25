@@ -23,21 +23,18 @@
             <version>${spring-boot.version}</version>
         </dependency>
 
-        <!-- R2DBC Starter for Database Integration -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-r2dbc</artifactId>
             <version>${spring-boot.version}</version>
         </dependency>
 
-        <!-- PostgreSQL R2DBC -->
         <dependency>
             <groupId>io.r2dbc</groupId>
             <artifactId>r2dbc-postgresql</artifactId>
             <version>0.8.11.RELEASE</version>
         </dependency>
 
-        <!-- Lombok for Code Generation -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -45,14 +42,12 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Springdoc OpenAPI for WebFlux (Swagger UI) -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-webflux-ui</artifactId>
             <version>1.6.9</version>
         </dependency>
 
-        <!-- H2 Database for Testing -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
@@ -60,7 +55,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Jackson for JSON Processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -73,14 +67,12 @@
             <version>2.15.0</version>
         </dependency>
 
-        <!-- Reactor Core for Reactive Programming -->
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>
             <version>3.5.0</version>
         </dependency>
 
-        <!-- Spring Kafka (se necessário) -->
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
@@ -97,6 +89,13 @@
             <artifactId>logback-classic</artifactId>
             <version>1.2.6</version>
         </dependency>
+
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
