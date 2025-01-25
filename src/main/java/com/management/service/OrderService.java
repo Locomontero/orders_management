@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
@@ -45,6 +47,7 @@ public class OrderService {
     }
 
     @KafkaListener(topics = "order-topic", groupId = "order-consumer-group")
+    @Retryable(value = { Exception.class }, maxAttempts = 3, backoff = @Backoff(delay = 2000))
     public void consumeOrder(String orderMessage) {
         try {
             List<OrderDTO> orderDTOList = objectMapper.readValue(orderMessage, new TypeReference<List<OrderDTO>>(){});
@@ -53,14 +56,19 @@ public class OrderService {
                 createOrderWithProducts(orderDTO).subscribe();
             }
         } catch (Exception e) {
-            logger.error("Erro ao processar os pedidos", e);
+            logger.error("Erro ao processar os pedidos. Enviando para o DLT", e);
+            sendToDeadLetterTopic(orderMessage, e.getMessage());
         }
     }
+
+    private void sendToDeadLetterTopic(String orderMessage, String error) {
+        kafkaTemplate.send("order-dlt", orderMessage + " | Error: " + error);
+    }
+
 @Transactional
 public Mono<Long> createOrderWithProducts(OrderDTO orderDTO) {
 
     Order order = convertToOrder(orderDTO);
-
 
     return databaseClient.sql("INSERT INTO orders (customer, status, total_value) VALUES (:customer, :status, 0) RETURNING id")
             .bind("customer", order.getCustomer())
@@ -76,24 +84,29 @@ public Mono<Long> createOrderWithProducts(OrderDTO orderDTO) {
             });
 }
 
+    private static final int BATCH_SIZE = 1000;
+
     private Mono<Void> insertProductsInBatch(List<Product> products, Long orderId) {
-        StringBuilder sql = new StringBuilder("INSERT INTO product (name, price, order_id) VALUES ");
-        for (int i = 0; i < products.size(); i++) {
-            sql.append("(:name" + i + ", :price" + i + ", :orderId)");
-            if (i < products.size() - 1) {
-                sql.append(", ");
-            }
-        }
+        return Flux.fromIterable(products)
+                .buffer(BATCH_SIZE)
+                .flatMap(batch -> {
+                    StringBuilder sql = new StringBuilder("INSERT INTO product (name, price, order_id) VALUES ");
+                    for (int i = 0; i < batch.size(); i++) {
+                        sql.append("(:name").append(i).append(", :price").append(i).append(", :orderId)");
+                        if (i < batch.size() - 1) {
+                            sql.append(", ");
+                        }
+                    }
 
-        var query = databaseClient.sql(sql.toString());
-
-        for (int i = 0; i < products.size(); i++) {
-            query = query.bind("name" + i, products.get(i).getName())
-                    .bind("price" + i, products.get(i).getPrice())
-                    .bind("orderId", orderId);
-        }
-
-        return query.fetch().rowsUpdated().then();
+                    var query = databaseClient.sql(sql.toString());
+                    for (int i = 0; i < batch.size(); i++) {
+                        query = query.bind("name" + i, batch.get(i).getName())
+                                .bind("price" + i, batch.get(i).getPrice())
+                                .bind("orderId", orderId);
+                    }
+                    return query.fetch().rowsUpdated();
+                })
+                .then();
     }
 
     private Mono<Void> updateTotalValue(Long orderId) {
