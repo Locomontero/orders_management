@@ -1,4 +1,5 @@
 # Order Management API
+![Arquitetura da API](image/order_management_diagram.png)
 
 A RESTful API construída com Spring WebFlux e R2DBC para gerenciar pedidos e produtos.
 
